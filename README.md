@@ -1,3 +1,3 @@
 # Map Editor for Surir
 
-This editor allows the edit maps for Surir.
+This editor allows to edit maps for Surir.

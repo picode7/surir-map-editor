@@ -264,7 +264,15 @@ class SurirEditor {
         // Button Share
         const buttonShare = document.createElement('button')
         buttonShare.textContent = 'Share'
-        buttonShare.addEventListener('click', () => prompt('Here is your link:', this.exportFile(selectedExportType, this.mapName, 'share')))
+        buttonShare.addEventListener('click', () => {
+            const link = this.exportFile(selectedExportType, this.mapName, 'share')
+            if (typeof link === 'undefined') return
+
+            copyText(link, (err) => {
+                if (err) prompt('Here is your link:', link)
+                else alert('Link copied to clipboard.')
+            })
+        })
         div.appendChild(buttonShare)
 
         // Button Import
@@ -465,7 +473,9 @@ class SurirEditor {
         if (option === 'download') {
             downloadText(fileName, fileContent)
         } else if (option === 'share') {
-            return this.shareLink(fileName, fileContent)
+            if (typeof fileName !== 'undefined' && typeof fileContent !== 'undefined')
+                return this.shareLink(fileName, fileContent)
+            else return undefined
         }
     }
 
