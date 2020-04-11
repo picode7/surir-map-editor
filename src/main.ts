@@ -90,6 +90,8 @@ class SurirEditor {
 
         // Load
         const onHashChange = () => {
+            if (this.actionsSaved === false && confirm('You have unsaved changes, open a new map?') === false) return
+
             const hash = urlGetHash()
             urlRemoveHash()
             this.importShare(hash)
