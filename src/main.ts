@@ -82,6 +82,14 @@ class SurirEditor {
         this.wallLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g')
         this.svg.appendChild(this.wallLayer)
 
+        // Load
+        const onHashChange = () => {
+            const hash = urlGetHash()
+            urlRemoveHash()
+            this.importShare(hash)
+        }
+        window.addEventListener('hashchange', () => onHashChange())
+
         const hash = urlGetHash()
         if (hash === '') {
             // Create default walls
@@ -98,6 +106,7 @@ class SurirEditor {
             urlRemoveHash()
             this.importShare(hash)
         }
+
         this.updateUnreachableZones()
 
         // Player
