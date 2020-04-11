@@ -668,8 +668,11 @@ class SurirEditor {
     set actionsSaved(value: boolean) {
         this._actionsSaved = value
         if (this._actionsSaved === true) this.actionsSavedIndex = this.actionIndex
-        if (this._actionsSaved) this.buttonSave.textContent = `Save`
-        else this.buttonSave.textContent = `Save *`
+
+        if (typeof this.buttonSave !== 'undefined') {
+            if (this._actionsSaved) this.buttonSave.textContent = `Save`
+            else this.buttonSave.textContent = `Save *`
+        }
     }
 
     get actionsSaved() {
