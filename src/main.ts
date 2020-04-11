@@ -53,6 +53,7 @@ class SurirEditor {
     buttonRemoveWalls: HTMLButtonElement
     buttonUndo: HTMLButtonElement
     buttonRedo: HTMLButtonElement
+    buttonSave: HTMLButtonElement
 
     constructor() {
         // SVG container
@@ -287,11 +288,14 @@ class SurirEditor {
         }
         div.appendChild(selectExportType)
 
-        // Button Export
-        const buttonExport = document.createElement('button')
-        buttonExport.textContent = 'Save'
-        buttonExport.addEventListener('click', () => this.exportFile(selectedExportType, this.mapName, 'download'))
-        div.appendChild(buttonExport)
+        // Button Save
+        this.buttonSave = document.createElement('button')
+        this.buttonSave.textContent = 'Save'
+        this.buttonSave.addEventListener('click', () => {
+            this.actionsSaved = true
+            this.exportFile(selectedExportType, this.mapName, 'download')
+        })
+        div.appendChild(this.buttonSave)
 
         // Button Share
         const buttonShare = document.createElement('button')
@@ -310,8 +314,20 @@ class SurirEditor {
         // Button Import
         const buttonImport = document.createElement('button')
         buttonImport.textContent = 'Open'
-        buttonImport.addEventListener('click', () => openTextFile((file: File, content: string) => this.importFile(file.name, content), this.importTypes.join(',')))
+        buttonImport.addEventListener('click', () => {
+            if (this.actionsSaved === false && confirm('You have unsaved changes, open a new map?') === false) return
+
+            openTextFile((file: File, content: string) => this.importFile(file.name, content), this.importTypes.join(','))
+        })
         div.appendChild(buttonImport)
+
+        // Prevent unsaved leaves
+        window.addEventListener('beforeunload', (event: BeforeUnloadEvent) => {
+            if (this.actionsSaved == false) {
+                event.preventDefault()
+                event.returnValue = ''
+            }
+        })
 
         this.updateMap()
         this.resetActions()
@@ -644,10 +660,25 @@ class SurirEditor {
 
     actions: Action[]
     actionIndex: number // the current action state
+    _actionsSaved: boolean
+    actionsSavedIndex: number
+
+    set actionsSaved(value: boolean) {
+        this._actionsSaved = value
+        if (this._actionsSaved === true) this.actionsSavedIndex = this.actionIndex
+        if (this._actionsSaved) this.buttonSave.textContent = `Save`
+        else this.buttonSave.textContent = `Save *`
+    }
+
+    get actionsSaved() {
+        return this._actionsSaved
+    }
 
     resetActions() {
         this.actions = []
         this.actionIndex = -1
+        this.actionsSaved = true
+        this.actionsSavedIndex = -1
         this.updateActionButtons()
     }
 
@@ -662,6 +693,10 @@ class SurirEditor {
 
         this.actions.push(action)
         this.actionIndex = this.actions.length - 1
+        if (this.actionsSavedIndex >= this.actionIndex) {
+            this.actionsSavedIndex = -1
+        }
+        this.actionsSaved = false
 
         this.updateActionButtons()
     }
@@ -672,6 +707,7 @@ class SurirEditor {
 
         // Move index to previous action
         this.actionIndex--
+        this.actionsSaved = this.actionsSavedIndex == this.actionIndex
 
         this.updateActionButtons()
     }
@@ -682,6 +718,7 @@ class SurirEditor {
 
         // Move index to following action
         this.actionIndex++
+        this.actionsSaved = this.actionsSavedIndex == this.actionIndex
 
         this.updateActionButtons()
     }
