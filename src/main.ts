@@ -43,11 +43,16 @@ class SurirEditor {
 
     zoom: number
     zoomCenter: { x: number, y: number, }
+    selectedWallType = WallType.Basic
+
     svg: SVGElement
     zonesLayer: SVGElement
     wallLayer: SVGElement
     floorRect: SVGElement
-    selectedWallType = WallType.Basic
+
+    buttonRemoveWalls: HTMLButtonElement
+    buttonUndo: HTMLButtonElement
+    buttonRedo: HTMLButtonElement
 
     constructor() {
         // SVG container
@@ -94,15 +99,15 @@ class SurirEditor {
         if (hash === '') {
             // Create default walls
             for (let x = 0; x < this.map.width; ++x) {
-                this.walls.push(new Wall(this.wallLayer, { x1: x, y1: 0, x2: x + 1, y2: 0 }, WallType.Basic))
-                this.walls.push(new Wall(this.wallLayer, { x1: x, y1: this.map.height, x2: x + 1, y2: this.map.height }, WallType.Basic))
+                this.addWall({ type: WallType.Basic, position: { x1: x, y1: 0, x2: x + 1, y2: 0 } }, false)
+                this.addWall({ type: WallType.Basic, position: { x1: x, y1: this.map.height, x2: x + 1, y2: this.map.height } }, false)
             }
 
             for (let y = 0; y < this.map.height; ++y) {
-                this.walls.push(new Wall(this.wallLayer, { x1: 0, y1: y, x2: 0, y2: y + 1 }, WallType.Basic))
-                this.walls.push(new Wall(this.wallLayer, { x1: this.map.width, y1: y, x2: this.map.width, y2: y + 1 }, WallType.Basic))
+                this.addWall({ type: WallType.Basic, position: { x1: 0, y1: y, x2: 0, y2: y + 1 } }, false)
+                this.addWall({ type: WallType.Basic, position: { x1: this.map.width, y1: y, x2: this.map.width, y2: y + 1 } }, false)
             }
-            this.updateUnreachableZones()
+            this.updateMap()
         } else {
             urlRemoveHash()
             this.importShare(hash)
@@ -198,22 +203,15 @@ class SurirEditor {
                 y2: wallMarker.position.y2,
             }
 
-            if (wallWithinBounds(this.map.width, this.map.height, wallMarker) === false) return
+            if (wallWithinBounds(this.map, wallMarker) === false) return
 
             const existingWall = findWall(this.walls, position)
             if (existingWall === null) {
-                this.walls.push(new Wall(this.wallLayer, position, this.selectedWallType))
+                this.actionNewWall({ type: this.selectedWallType, position })
             } else {
-                for (let i = 0; i < this.walls.length; ++i) {
-                    if (this.walls[i] !== existingWall) continue
-
-                    existingWall.remove()
-                    this.walls.splice(i, 1)
-                    break
-                }
+                this.actionRemoveWall(existingWall)
             }
 
-            this.updateUnreachableZones()
         })
 
         // Controls Input
@@ -244,6 +242,26 @@ class SurirEditor {
             selectWallType.options.add(elOption)
         }
         div.appendChild(selectWallType)
+
+        // Button Remove Walls
+        this.buttonRemoveWalls = document.createElement('button')
+        this.buttonRemoveWalls.textContent = 'Remove Walls'
+        this.buttonRemoveWalls.addEventListener('click', () => this.actionRemoveWalls())
+        div.appendChild(this.buttonRemoveWalls)
+
+        // Button Remove Undo
+        this.buttonUndo = document.createElement('button')
+        this.buttonUndo.textContent = 'Undo'
+        this.buttonUndo.disabled = true
+        this.buttonUndo.addEventListener('click', () => this.undo())
+        div.appendChild(this.buttonUndo)
+
+        // Button Remove Redo
+        this.buttonRedo = document.createElement('button')
+        this.buttonRedo.textContent = 'Redo'
+        this.buttonRedo.disabled = true
+        this.buttonRedo.addEventListener('click', () => this.redo())
+        div.appendChild(this.buttonRedo)
 
         // Button Center view
         const buttonCenterView = document.createElement('button')
@@ -294,6 +312,9 @@ class SurirEditor {
         buttonImport.textContent = 'Open'
         buttonImport.addEventListener('click', () => openTextFile((file: File, content: string) => this.importFile(file.name, content), this.importTypes.join(',')))
         div.appendChild(buttonImport)
+
+        this.updateMap()
+        this.resetActions()
     }
 
     screenToMapPosition(screenPixelX: number, screenPixelY: number) {
@@ -333,7 +354,11 @@ class SurirEditor {
         this.centerView()
     }
 
-    updateUnreachableZones = () => {
+    updateMap() {
+        if (typeof this.buttonRemoveWalls !== 'undefined')
+            this.buttonRemoveWalls.disabled = this.walls.length == this.map.width * 2 + this.map.height * 2 // only outer walls, no inner walls to remove
+
+        // Update unreachable zones
         this.zonesLayer.innerHTML = ''
 
         for (let y = 0; y < this.map.height; ++y) {
@@ -366,11 +391,29 @@ class SurirEditor {
         this.resize()
     }
 
-    removeWalls() {
+    removeAllWalls(updateUnreachableZones: boolean) {
         for (const wall of this.walls) {
             wall.remove()
         }
         this.walls = []
+        if (updateUnreachableZones) this.updateMap()
+    }
+
+    removeWall(wall: Wall, updateUnreachableZones: boolean) {
+        for (let i = 0; i < this.walls.length; ++i) {
+            if (wall == this.walls[i]) {
+                this.walls[i].remove()
+                this.walls.splice(i, 1)
+            }
+        }
+        if (updateUnreachableZones) this.updateMap()
+    }
+
+    addWall(wall: IWall, updateUnreachableZones: boolean) {
+        const newWall = new Wall(this.wallLayer, copyObject(wall.position), wall.type)
+        this.walls.push(newWall)
+        if (updateUnreachableZones) this.updateMap()
+        return newWall
     }
 
     importFile(fileName: string, fileContent: string) {
@@ -393,34 +436,32 @@ class SurirEditor {
                 {
                     const map = importMAZFile(fileContent)
 
+                    this.resetActions()
                     this.mapName = fileBaseName
                     this.setMapSize(map.width, map.height)
 
-                    this.removeWalls()
+                    this.removeAllWalls(false)
                     for (const wall of map.walls) {
-                        this.walls.push(
-                            new Wall(this.wallLayer, wall.position, wall.type)
-                        )
+                        this.addWall(wall, false)
                     }
-                    this.updateUnreachableZones()
+                    this.updateMap()
                 }
                 break
             case 'sir':
                 {
                     const map = importSIRFile(fileContent)
 
+                    this.resetActions()
                     this.mapName = map.name
                     this.mapAuthor = map.author
                     this.mapDescription = map.description
                     this.setMapSize(map.width, map.height)
 
-                    this.removeWalls()
+                    this.removeAllWalls(false)
                     for (const wall of map.walls) {
-                        this.walls.push(
-                            new Wall(this.wallLayer, wall.position, wall.type)
-                        )
+                        this.addWall(wall, false)
                     }
-                    this.updateUnreachableZones()
+                    this.updateMap()
                 }
                 break
         }
@@ -501,6 +542,7 @@ class SurirEditor {
         const split = hash.split(';')
         if (split.length !== 2) return
 
+        this.resetActions()
         const fileName = decodeURIComponent(split[0])
         const fileContent = decodeURIComponent(split[1])
 
@@ -514,28 +556,146 @@ class SurirEditor {
         return `${location.href}#${fileNameEncoded};${fileContentEncoded}`
     }
 
-    actions: Action[] = []
-    do(action: Action) {
+    actionNewWall(wall: IWall) {
 
+        let newWall: IWall = {
+            type: wall.type,
+            position: copyObject(wall.position),
+        }
+
+        const redo = () => {
+            this.addWall(newWall, true)
+        }
+
+        const undo = () => {
+            const wallAtPos = findWall(this.walls, newWall.position)
+            this.removeWall(wallAtPos, true)
+        }
+
+        redo()
+
+        this.newAction({
+            type: ActionType.NewWall,
+            redo,
+            undo,
+        })
+    }
+
+
+    actionRemoveWall(wall: Wall) {
+
+        let removedWall: IWall = {
+            type: wall.type,
+            position: copyObject(wall.position),
+        }
+
+        const redo = () => {
+            const wallAtPos = findWall(this.walls, removedWall.position)
+            this.removeWall(wallAtPos, true)
+        }
+
+        const undo = () => {
+            this.addWall(removedWall, true)
+        }
+
+        redo()
+
+        this.newAction({
+            type: ActionType.NewWall,
+            redo,
+            undo,
+        })
+    }
+
+    actionRemoveWalls() {
+
+        let removedWalls: IWall[] = []
+
+        const redo = () => {
+            for (let i = 0; i < this.walls.length; ++i) {
+                const wall = this.walls[i]
+                if (wallWithinBounds(this.map, wall)) {
+                    removedWalls.push({ type: wall.type, position: copyObject(wall.position) })
+                    wall.remove()
+                    this.walls.splice(i, 1)
+                    i -= 1
+                }
+            }
+            this.updateMap()
+        }
+
+        const undo = () => {
+            // restore walls
+            for (const wall of removedWalls) {
+                this.addWall(wall, false)
+            }
+            removedWalls = []
+            this.updateMap()
+        }
+
+        redo()
+
+        this.newAction({
+            type: ActionType.RemoveInnerWalls,
+            redo,
+            undo,
+        })
+    }
+
+    actions: Action[]
+    actionIndex: number // the current action state
+
+    resetActions() {
+        this.actions = []
+        this.actionIndex = -1
+        this.updateActionButtons()
+    }
+
+    updateActionButtons() {
+        this.buttonUndo.disabled = this.actionIndex == -1
+        this.buttonRedo.disabled = this.actionIndex == this.actions.length - 1
+    }
+
+    newAction(action: Action) {
+        // Remove potential redo actions
+        this.actions.splice(this.actionIndex + 1)
+
+        this.actions.push(action)
+        this.actionIndex = this.actions.length - 1
+
+        this.updateActionButtons()
     }
 
     undo() {
+        // Undo current action
+        this.actions[this.actionIndex].undo()
 
+        // Move index to previous action
+        this.actionIndex--
+
+        this.updateActionButtons()
     }
 
     redo() {
+        // Redo following action
+        this.actions[this.actionIndex + 1].redo()
 
+        // Move index to following action
+        this.actionIndex++
+
+        this.updateActionButtons()
     }
 }
 
 const enum ActionType {
-    SetWall,
+    NewWall,
     RemoveWall,
-    //Clear,
-    LoadFile,
+    RemoveInnerWalls,
 }
 interface Action {
     type: ActionType
+    undo: () => any
+    redo: () => any
 }
 
 class Player {
@@ -691,6 +851,7 @@ class WallMarker {
         rect.style.stroke = '#000'
         rect.style.strokeWidth = '0.02'
         rect.style.opacity = '0.5'
+        rect.style.display = 'none'
         g.appendChild(rect)
         this.rect = rect
 
@@ -728,7 +889,7 @@ class WallMarker {
         }
         this.setPosition(position)
 
-        if (wallWithinBounds(map.width, map.height, { position }) === false)
+        if (wallWithinBounds(map, { position }) === false)
             this.rect.style.display = 'none'
         else
             this.rect.style.display = 'block'

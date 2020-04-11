@@ -1,12 +1,21 @@
-function wallWithinBounds(width: number, height: number, wall: { position: Line }) {
+interface IWall {
+    type: WallType,
+    position: Line,
+}
 
-    // Check if inside of maze and not one border
+/**
+ * Check if inside of maze and not one border
+ * @param width 
+ * @param height 
+ * @param wall 
+ */
+function wallWithinBounds(size: { width: number, height: number }, wall: { position: Line }) {
     const horizontal = wall.position.x1 !== wall.position.x2
     if (horizontal) {
-        if (inBounds({ x: wall.position.x1, y: wall.position.y1 }, { x1: 0, y1: 1, x2: width - 1, y2: height - 1 }) === false)
+        if (inBounds({ x: wall.position.x1, y: wall.position.y1 }, { x1: 0, y1: 1, x2: size.width - 1, y2: size.height - 1 }) === false)
             return false
     } else {
-        if (inBounds({ x: wall.position.x1, y: wall.position.y1 }, { x1: 1, y1: 0, x2: width - 1, y2: height - 1 }) === false)
+        if (inBounds({ x: wall.position.x1, y: wall.position.y1 }, { x1: 1, y1: 0, x2: size.width - 1, y2: size.height - 1 }) === false)
             return false
     }
 
@@ -67,7 +76,7 @@ function importMAZFile(text: string) {
     XXXXXXXXX 
     */
 
-    let walls: { type: WallType, position: Line }[] = []
+    let walls: IWall[] = []
     const lines = text.split('\n')
 
     // First line maze size
@@ -182,7 +191,7 @@ function generateMazeData(width: number, height: number, walls: { position: Line
 }
 
 function importSIRFile(text: string) {
-    let walls: { type: WallType, position: Line }[] = []
+    let walls: IWall[] = []
     let name: string
     let author: string
     let description: string
