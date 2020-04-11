@@ -1,0 +1,14 @@
+{
+  "compileOnSave": true,
+
+  "compilerOptions": {
+    "module": "system",
+    "noImplicitAny": true,
+    "removeComments": false,
+    "preserveConstEnums": true,
+    "sourceMap": true,
+
+    "target": "es5",
+    "outFile": "app.js"
+  }
+}
