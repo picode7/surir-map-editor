@@ -102,12 +102,11 @@ class SurirEditor {
                 this.walls.push(new Wall(this.wallLayer, { x1: 0, y1: y, x2: 0, y2: y + 1 }, WallType.Basic))
                 this.walls.push(new Wall(this.wallLayer, { x1: this.map.width, y1: y, x2: this.map.width, y2: y + 1 }, WallType.Basic))
             }
+            this.updateUnreachableZones()
         } else {
             urlRemoveHash()
             this.importShare(hash)
         }
-
-        this.updateUnreachableZones()
 
         // Player
         //new Player(this.svg)
@@ -246,6 +245,12 @@ class SurirEditor {
         }
         div.appendChild(selectWallType)
 
+        // Button Center view
+        const buttonCenterView = document.createElement('button')
+        buttonCenterView.textContent = 'Center View'
+        buttonCenterView.addEventListener('click', () => this.centerView())
+        div.appendChild(buttonCenterView)
+
         // Select Export Type
         let selectedExportType = this.exportTypes[0]
         const selectExportType = document.createElement('select')
@@ -325,13 +330,7 @@ class SurirEditor {
         this.floorRect.setAttribute('height', `${WallLength * this.map.height}`)
 
         // Reset zoom
-        this.zoom = 0.95
-        this.zoomCenter = {
-            x: this.map.width / 2,
-            y: this.map.height / 2,
-        }
-
-        this.resize()
+        this.centerView()
     }
 
     updateUnreachableZones = () => {
@@ -355,6 +354,16 @@ class SurirEditor {
                 }
             }
         }
+    }
+
+    centerView() {
+        this.zoom = 0.95
+        this.zoomCenter = {
+            x: this.map.width / 2,
+            y: this.map.height / 2,
+        }
+
+        this.resize()
     }
 
     removeWalls() {
@@ -504,6 +513,29 @@ class SurirEditor {
 
         return `${location.href}#${fileNameEncoded};${fileContentEncoded}`
     }
+
+    actions: Action[] = []
+    do(action: Action) {
+
+    }
+
+    undo() {
+
+    }
+
+    redo() {
+
+    }
+}
+
+const enum ActionType {
+    SetWall,
+    RemoveWall,
+    //Clear,
+    LoadFile,
+}
+interface Action {
+    type: ActionType
 }
 
 class Player {
