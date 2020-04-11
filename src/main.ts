@@ -688,8 +688,10 @@ class SurirEditor {
     }
 
     updateActionButtons() {
-        this.buttonUndo.disabled = this.actionIndex == -1
-        this.buttonRedo.disabled = this.actionIndex == this.actions.length - 1
+        if (typeof this.buttonUndo !== 'undefined') {
+            this.buttonUndo.disabled = this.actionIndex == -1
+            this.buttonRedo.disabled = this.actionIndex == this.actions.length - 1
+        }
     }
 
     newAction(action: Action) {
