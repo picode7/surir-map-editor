@@ -22,7 +22,7 @@ function wallWithinBounds(size: { width: number, height: number }, wall: { posit
     return true
 }
 
-function findWall<T extends { position: Line }>(walls: T[], position: Line): T {
+function getWallAt<T extends { position: Line }>(walls: T[], position: Line): T {
     for (const wall of walls) {
         if (
             wall.position.x1 === position.x1 &&
@@ -133,7 +133,7 @@ function generateMazeData(width: number, height: number, walls: { position: Line
                 if (x % 2 === 1) {
                     // yep that can be a hor wall
                     const xPos = Math.floor(x / 2)
-                    const wall = findWall(walls, { x1: xPos, y1: yPos, x2: xPos + 1, y2: yPos, })
+                    const wall = getWallAt(walls, { x1: xPos, y1: yPos, x2: xPos + 1, y2: yPos, })
                     if (wall === null) continue
 
                     switch (wall.type) {
@@ -158,7 +158,7 @@ function generateMazeData(width: number, height: number, walls: { position: Line
                 if (x % 2 === 0) {
                     // yep that can be a ver wall
                     const xPos = Math.floor(x / 2)
-                    const wall = findWall(walls, { x1: xPos, y1: yPos, x2: xPos, y2: yPos + 1, })
+                    const wall = getWallAt(walls, { x1: xPos, y1: yPos, x2: xPos, y2: yPos + 1, })
                     if (wall === null) continue
 
                     switch (wall.type) {
@@ -307,9 +307,9 @@ function generateMazeDataInterlaced(width: number, height: number, walls: { posi
         for (let x = 0; x < width + 1; ++x) {
             let wall: { type: WallType }
             if (y % 2 === 0) { // horizontals
-                wall = findWall(walls, { x1: x, y1: yPos, x2: x + 1, y2: yPos, })
+                wall = getWallAt(walls, { x1: x, y1: yPos, x2: x + 1, y2: yPos, })
             } else { // verticals
-                wall = findWall(walls, { x1: x, y1: yPos, x2: x, y2: yPos + 1, })
+                wall = getWallAt(walls, { x1: x, y1: yPos, x2: x, y2: yPos + 1, })
             }
 
             if (wall === null) {

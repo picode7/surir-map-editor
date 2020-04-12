@@ -50,174 +50,13 @@ class SurirEditor {
     wallLayer: SVGElement
     floorRect: SVGElement
 
+    buttonMapSize: HTMLButtonElement
     buttonRemoveWalls: HTMLButtonElement
     buttonUndo: HTMLButtonElement
     buttonRedo: HTMLButtonElement
     buttonSave: HTMLButtonElement
 
     constructor() {
-        // SVG container
-        this.svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-        this.svg.style.backgroundColor = SkyColor
-        document.body.appendChild(this.svg)
-
-        // Pattern
-        const pattern = document.createElementNS('http://www.w3.org/2000/svg', 'pattern')
-        pattern.id = 'pattern'
-        pattern.setAttribute('width', `0.04`)
-        pattern.setAttribute('height', `0.04`)
-        pattern.setAttribute('patternUnits', `userSpaceOnUse`)
-        this.svg.appendChild(pattern)
-        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
-        path.style.stroke = WallColorBasic
-        path.style.strokeWidth = '0.01'
-        path.style.opacity = '.3'
-        path.setAttribute('d', `M-0.01,0.01 l0.02,-0.02 M0.00,0.04 l0.04,-0.04 M0.03,0.05 l0.02,-0.02`)
-        pattern.appendChild(path)
-
-        // Floor
-        this.floorRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-        this.floorRect.style.fill = FloorColor
-        this.svg.appendChild(this.floorRect)
-
-        // Zones
-        this.zonesLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-        this.svg.appendChild(this.zonesLayer)
-
-        // Walls
-        this.wallLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-        this.svg.appendChild(this.wallLayer)
-
-        // Load
-        const onHashChange = () => {
-            const hash = urlGetHash()
-            urlRemoveHash()
-
-            if (this.actionsSaved === false && confirm('You have unsaved changes, open a new map?') === false) return
-
-            this.importShare(hash)
-        }
-        window.addEventListener('hashchange', () => onHashChange())
-
-        const hash = urlGetHash()
-        if (hash === '') {
-            // Create default walls
-            for (let x = 0; x < this.map.width; ++x) {
-                this.addWall({ type: WallType.Basic, position: { x1: x, y1: 0, x2: x + 1, y2: 0 } }, false)
-                this.addWall({ type: WallType.Basic, position: { x1: x, y1: this.map.height, x2: x + 1, y2: this.map.height } }, false)
-            }
-
-            for (let y = 0; y < this.map.height; ++y) {
-                this.addWall({ type: WallType.Basic, position: { x1: 0, y1: y, x2: 0, y2: y + 1 } }, false)
-                this.addWall({ type: WallType.Basic, position: { x1: this.map.width, y1: y, x2: this.map.width, y2: y + 1 } }, false)
-            }
-            this.updateMap()
-        } else {
-            urlRemoveHash()
-            this.importShare(hash)
-        }
-
-        // Player
-        //new Player(this.svg)
-
-        // Marker
-        const wallMarker = new WallMarker(this.svg, { x1: 0, y1: 0, x2: 1, y2: 0 })
-
-        // Adjust UI
-        this.setMapSize(this.map.width, this.map.height)
-
-        // GUI-Map inputs
-
-        let clickMoved = false
-
-        // Render size
-        window.addEventListener('resize', () => this.resize())
-
-        // Zoom
-        this.svg.addEventListener('mousewheel', (e: WheelEvent) => {
-
-            /** one svg unit equals that many pixels including the zoom */
-            const zoomPixelRatioPrev = Math.min(this.svg.clientWidth / this.map.width, this.svg.clientHeight / this.map.height) * this.zoom
-            const pixelOffsetX = this.svg.clientWidth / 2 - e.clientX
-            const pixelOffsetY = this.svg.clientHeight / 2 - e.clientY
-
-            const offsetXPrev = pixelOffsetX / zoomPixelRatioPrev
-            const offsetYPrev = pixelOffsetY / zoomPixelRatioPrev
-
-            const zoomRatio = 1.3
-            if (e.deltaY > 0) {
-                this.zoom /= zoomRatio
-            } else if (e.deltaY < 0) {
-                this.zoom *= zoomRatio
-            }
-
-            /** one svg unit equals that many pixels including the zoom */
-            const zoomPixelRatio = Math.min(this.svg.clientWidth / this.map.width, this.svg.clientHeight / this.map.height) * this.zoom
-            /** one svg unit equals that many pixels including the zoom */
-            const offsetX = pixelOffsetX / zoomPixelRatio
-            const offsetY = pixelOffsetY / zoomPixelRatio
-            // move by how much that point moved between the two zoom levels
-            this.zoomCenter.x += offsetX - offsetXPrev
-            this.zoomCenter.y += offsetY - offsetYPrev
-
-            this.resize()
-        })
-
-        // Drag
-        let mouseMovePrevious = { x: 0, y: 0 }
-        const onMouseMove = (e: MouseEvent) => {
-            const zoomPixelRatio = Math.min(this.svg.clientWidth / this.map.width, this.svg.clientHeight / this.map.height) * this.zoom
-            const pixelOffsetX = e.clientX - mouseMovePrevious.x
-            const pixelOffsetY = e.clientY - mouseMovePrevious.y
-            const offsetX = pixelOffsetX / zoomPixelRatio
-            const offsetY = pixelOffsetY / zoomPixelRatio
-            this.zoomCenter.x += -offsetX
-            this.zoomCenter.y += -offsetY
-            this.resize()
-            clickMoved = true
-
-            mouseMovePrevious.x = e.clientX
-            mouseMovePrevious.y = e.clientY
-        }
-
-        this.svg.addEventListener('mousedown', (e: MouseEvent) => {
-            window.addEventListener('mousemove', onMouseMove)
-            mouseMovePrevious.x = e.clientX
-            mouseMovePrevious.y = e.clientY
-            clickMoved = false
-        })
-
-        window.addEventListener('mouseup', (e: MouseEvent) => {
-            window.removeEventListener('mousemove', onMouseMove)
-        })
-
-        // Marker / Set wall
-        this.svg.addEventListener('mousemove', (e: MouseEvent) => {
-            const coords = this.screenToMapPosition(e.clientX, e.clientY)
-            wallMarker.snapPosition(coords.x, coords.y, this.map)
-        })
-
-        this.svg.addEventListener('click', (e: MouseEvent) => {
-            if (clickMoved) return
-
-            const position = {
-                x1: wallMarker.position.x1,
-                y1: wallMarker.position.y1,
-                x2: wallMarker.position.x2,
-                y2: wallMarker.position.y2,
-            }
-
-            if (wallWithinBounds(this.map, wallMarker) === false) return
-
-            const existingWall = findWall(this.walls, position)
-            if (existingWall === null) {
-                this.actionNewWall({ type: this.selectedWallType, position })
-            } else {
-                this.actionRemoveWall(existingWall)
-            }
-
-        })
-
         // Controls Input
 
         // Controls container
@@ -229,6 +68,26 @@ class SurirEditor {
         div.style.display = 'flex'
         div.style.justifyContent = 'flex-end'
         document.body.appendChild(div)
+
+        // Button Map Size
+        this.buttonMapSize = document.createElement('button')
+        this.buttonMapSize.textContent = `Map size: ${this.map.width} x ${this.map.height}` // also in actionSetMapSize
+        this.buttonMapSize.addEventListener('click', () => {
+            const value = prompt('New map size:', `${this.map.width}x${this.map.height}`)
+            if (value === null) return // canceled
+
+            const match = value.match(/^\s*(\d+)\s*[xX]\s*(\d+)\s*$/)
+            if (match === null) {
+                alert(`Bad input\n\n${value}`)
+                return
+            }
+
+            const width = parseInt(match[1])
+            const height = parseInt(match[2])
+
+            this.actionResizeMap(width, height)
+        })
+        div.appendChild(this.buttonMapSize)
 
         // Select Wall Type
         const selectWallType = document.createElement('select')
@@ -332,6 +191,170 @@ class SurirEditor {
             }
         })
 
+        // SVG container
+        this.svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+        this.svg.style.backgroundColor = SkyColor
+        document.body.appendChild(this.svg)
+
+        // Pattern
+        const pattern = document.createElementNS('http://www.w3.org/2000/svg', 'pattern')
+        pattern.id = 'pattern'
+        pattern.setAttribute('width', `0.04`)
+        pattern.setAttribute('height', `0.04`)
+        pattern.setAttribute('patternUnits', `userSpaceOnUse`)
+        this.svg.appendChild(pattern)
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+        path.style.stroke = WallColorBasic
+        path.style.strokeWidth = '0.01'
+        path.style.opacity = '.3'
+        path.setAttribute('d', `M-0.01,0.01 l0.02,-0.02 M0.00,0.04 l0.04,-0.04 M0.03,0.05 l0.02,-0.02`)
+        pattern.appendChild(path)
+
+        // Floor
+        this.floorRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+        this.floorRect.style.fill = FloorColor
+        this.svg.appendChild(this.floorRect)
+
+        // Zones
+        this.zonesLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+        this.svg.appendChild(this.zonesLayer)
+
+        // Walls
+        this.wallLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+        this.svg.appendChild(this.wallLayer)
+
+        // Load
+        const onHashChange = () => {
+            const hash = urlGetHash()
+            urlRemoveHash()
+
+            if (this.actionsSaved === false && confirm('You have unsaved changes, open a new map?') === false) return
+
+            this.importShare(hash)
+        }
+        window.addEventListener('hashchange', () => onHashChange())
+
+        const hash = urlGetHash()
+        if (hash === '') {
+            // Create default walls
+            for (let x = 0; x < this.map.width; ++x) {
+                this.addWall({ type: WallType.Basic, position: { x1: x, y1: 0, x2: x + 1, y2: 0 } }, false)
+                this.addWall({ type: WallType.Basic, position: { x1: x, y1: this.map.height, x2: x + 1, y2: this.map.height } }, false)
+            }
+
+            for (let y = 0; y < this.map.height; ++y) {
+                this.addWall({ type: WallType.Basic, position: { x1: 0, y1: y, x2: 0, y2: y + 1 } }, false)
+                this.addWall({ type: WallType.Basic, position: { x1: this.map.width, y1: y, x2: this.map.width, y2: y + 1 } }, false)
+            }
+            this.updateMap()
+        } else {
+            urlRemoveHash()
+            this.importShare(hash)
+        }
+
+        // Player
+        //new Player(this.svg)
+
+        // Marker
+        const wallMarker = new WallMarker(this.svg, { x1: 0, y1: 0, x2: 1, y2: 0 })
+
+        // Adjust UI
+        this.setMapSize(this.map.width, this.map.height)
+        // Reset zoom
+        this.centerView()
+
+        // GUI-Map inputs
+
+        let clickMoved = false
+
+        // Render size
+        window.addEventListener('resize', () => this.resize())
+
+        // Zoom
+        this.svg.addEventListener('mousewheel', (e: WheelEvent) => {
+
+            /** one svg unit equals that many pixels including the zoom */
+            const zoomPixelRatioPrev = Math.min(this.svg.clientWidth / this.map.width, this.svg.clientHeight / this.map.height) * this.zoom
+            const pixelOffsetX = this.svg.clientWidth / 2 - e.clientX
+            const pixelOffsetY = this.svg.clientHeight / 2 - e.clientY
+
+            const offsetXPrev = pixelOffsetX / zoomPixelRatioPrev
+            const offsetYPrev = pixelOffsetY / zoomPixelRatioPrev
+
+            const zoomRatio = 1.3
+            if (e.deltaY > 0) {
+                this.zoom /= zoomRatio
+            } else if (e.deltaY < 0) {
+                this.zoom *= zoomRatio
+            }
+
+            /** one svg unit equals that many pixels including the zoom */
+            const zoomPixelRatio = Math.min(this.svg.clientWidth / this.map.width, this.svg.clientHeight / this.map.height) * this.zoom
+            /** one svg unit equals that many pixels including the zoom */
+            const offsetX = pixelOffsetX / zoomPixelRatio
+            const offsetY = pixelOffsetY / zoomPixelRatio
+            // move by how much that point moved between the two zoom levels
+            this.zoomCenter.x += offsetX - offsetXPrev
+            this.zoomCenter.y += offsetY - offsetYPrev
+
+            this.resize()
+        })
+
+        // Drag
+        let mouseMovePrevious = { x: 0, y: 0 }
+        const onMouseMove = (e: MouseEvent) => {
+            const zoomPixelRatio = Math.min(this.svg.clientWidth / this.map.width, this.svg.clientHeight / this.map.height) * this.zoom
+            const pixelOffsetX = e.clientX - mouseMovePrevious.x
+            const pixelOffsetY = e.clientY - mouseMovePrevious.y
+            const offsetX = pixelOffsetX / zoomPixelRatio
+            const offsetY = pixelOffsetY / zoomPixelRatio
+            this.zoomCenter.x += -offsetX
+            this.zoomCenter.y += -offsetY
+            this.resize()
+            clickMoved = true
+
+            mouseMovePrevious.x = e.clientX
+            mouseMovePrevious.y = e.clientY
+        }
+
+        this.svg.addEventListener('mousedown', (e: MouseEvent) => {
+            window.addEventListener('mousemove', onMouseMove)
+            mouseMovePrevious.x = e.clientX
+            mouseMovePrevious.y = e.clientY
+            clickMoved = false
+        })
+
+        window.addEventListener('mouseup', (e: MouseEvent) => {
+            window.removeEventListener('mousemove', onMouseMove)
+        })
+
+        // Marker / Set wall
+        this.svg.addEventListener('mousemove', (e: MouseEvent) => {
+            const coords = this.screenToMapPosition(e.clientX, e.clientY)
+            wallMarker.snapPosition(coords.x, coords.y, this.map)
+        })
+
+        this.svg.addEventListener('click', (e: MouseEvent) => {
+            if (clickMoved) return
+
+            const position = {
+                x1: wallMarker.position.x1,
+                y1: wallMarker.position.y1,
+                x2: wallMarker.position.x2,
+                y2: wallMarker.position.y2,
+            }
+
+            if (wallWithinBounds(this.map, wallMarker) === false) return
+
+            const existingWall = getWallAt(this.walls, position)
+            if (existingWall === null) {
+                this.actionNewWall({ type: this.selectedWallType, position })
+            } else {
+                this.actionRemoveWall(existingWall)
+            }
+
+        })
+
         this.updateMap()
         this.resetActions()
     }
@@ -369,8 +392,7 @@ class SurirEditor {
         this.floorRect.setAttribute('width', `${WallLength * this.map.width}`)
         this.floorRect.setAttribute('height', `${WallLength * this.map.height}`)
 
-        // Reset zoom
-        this.centerView()
+        this.buttonMapSize.textContent = `Map size: ${this.map.width} x ${this.map.height}` // also in buttonMapSize init
     }
 
     updateMap() {
@@ -383,10 +405,10 @@ class SurirEditor {
         for (let y = 0; y < this.map.height; ++y) {
             for (let x = 0; x < this.map.width; ++x) {
                 if (
-                    findWall(this.walls, { x1: x, y1: y, x2: x + 1, y2: y, }) &&// top
-                    findWall(this.walls, { x1: x + 1, y1: y, x2: x + 1, y2: y + 1, }) && // right
-                    findWall(this.walls, { x1: x, y1: y + 1, x2: x + 1, y2: y + 1, }) && // bottom
-                    findWall(this.walls, { x1: x, y1: y, x2: x, y2: y + 1, }) // left
+                    getWallAt(this.walls, { x1: x, y1: y, x2: x + 1, y2: y, }) &&// top
+                    getWallAt(this.walls, { x1: x + 1, y1: y, x2: x + 1, y2: y + 1, }) && // right
+                    getWallAt(this.walls, { x1: x, y1: y + 1, x2: x + 1, y2: y + 1, }) && // bottom
+                    getWallAt(this.walls, { x1: x, y1: y, x2: x, y2: y + 1, }) // left
                 ) {
                     const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
                     rect.style.fill = 'url(#pattern)'
@@ -458,6 +480,8 @@ class SurirEditor {
                     this.resetActions()
                     this.mapName = fileBaseName
                     this.setMapSize(map.width, map.height)
+                    // Reset zoom
+                    this.centerView()
 
                     this.removeAllWalls(false)
                     for (const wall of map.walls) {
@@ -475,6 +499,8 @@ class SurirEditor {
                     this.mapAuthor = map.author
                     this.mapDescription = map.description
                     this.setMapSize(map.width, map.height)
+                    // Reset zoom
+                    this.centerView()
 
                     this.removeAllWalls(false)
                     for (const wall of map.walls) {
@@ -575,6 +601,93 @@ class SurirEditor {
         return `${location.href}#${fileNameEncoded};${fileContentEncoded}`
     }
 
+    actionResizeMap(width: number, height: number) {
+
+        if (this.map.width == width && this.map.height == height) {
+            // nothing really happend
+            return
+        }
+
+
+
+        // TODO also remove other walls in zone
+        let removedWalls: IWall[] = []
+
+
+        const previousWidth = this.map.width
+        const previousHeight = this.map.height
+
+        const applySize = (newWidth: number, newHeight: number) => {
+            // remove outer walls
+            for (let x = 0; x < this.map.width; ++x) {
+                const wallTop = getWallAt(this.walls, { x1: x, y1: 0, x2: x + 1, y2: 0 })
+                this.removeWall(wallTop, false)
+                const wallBottom = getWallAt(this.walls, { x1: x, y1: this.map.height, x2: x + 1, y2: this.map.height })
+                this.removeWall(wallBottom, false)
+            }
+            for (let y = 0; y < this.map.height; ++y) {
+                const wallLeft = getWallAt(this.walls, { x1: 0, y1: y, x2: 0, y2: y + 1 })
+                this.removeWall(wallLeft, false)
+                const wallRight = getWallAt(this.walls, { x1: this.map.width, y1: y, x2: this.map.width, y2: y + 1 })
+                this.removeWall(wallRight, false)
+            }
+
+            // put new outer walls
+            for (let x = 0; x < newWidth; ++x) {
+                this.addWall({ type: WallType.Basic, position: { x1: x, y1: 0, x2: x + 1, y2: 0 } }, false)
+                this.addWall({ type: WallType.Basic, position: { x1: x, y1: newHeight, x2: x + 1, y2: newHeight } }, false)
+            }
+            for (let y = 0; y < newHeight; ++y) {
+                this.addWall({ type: WallType.Basic, position: { x1: 0, y1: y, x2: 0, y2: y + 1 } }, false)
+                this.addWall({ type: WallType.Basic, position: { x1: newWidth, y1: y, x2: newWidth, y2: y + 1 } }, false)
+            }
+
+            // Update map and stuff
+            this.setMapSize(newWidth, newHeight)
+            this.updateMap()
+            this.centerView()
+        }
+
+        const redo = () => {
+
+            // remove inner walls out of zone
+            const size = { width, height }
+            for (let i = 0; i < this.walls.length; ++i) {
+                const wall = this.walls[i]
+                if (wallWithinBounds(size, wall) == false && // not in new zone
+                    wallWithinBounds(this.map, wall) == true // in currently, so it's not and edge wall
+                ) {
+                    console.log(wall)
+                    removedWalls.push({ type: wall.type, position: copyObject(wall.position) })
+                    wall.remove()
+                    this.walls.splice(i, 1)
+                    i -= 1
+                }
+            }
+
+            applySize(width, height)
+        }
+
+        const undo = () => {
+            // restore walls
+            for (const wall of removedWalls) {
+                this.addWall(wall, false)
+            }
+            removedWalls = []
+
+            applySize(previousWidth, previousHeight)
+        }
+
+        redo()
+
+        this.newAction({
+            type: ActionType.MapResize,
+            redo,
+            undo,
+        })
+
+    }
+
     actionNewWall(wall: IWall) {
 
         let newWall: IWall = {
@@ -587,7 +700,7 @@ class SurirEditor {
         }
 
         const undo = () => {
-            const wallAtPos = findWall(this.walls, newWall.position)
+            const wallAtPos = getWallAt(this.walls, newWall.position)
             this.removeWall(wallAtPos, true)
         }
 
@@ -600,7 +713,6 @@ class SurirEditor {
         })
     }
 
-
     actionRemoveWall(wall: Wall) {
 
         let removedWall: IWall = {
@@ -609,7 +721,7 @@ class SurirEditor {
         }
 
         const redo = () => {
-            const wallAtPos = findWall(this.walls, removedWall.position)
+            const wallAtPos = getWallAt(this.walls, removedWall.position)
             this.removeWall(wallAtPos, true)
         }
 
@@ -627,6 +739,11 @@ class SurirEditor {
     }
 
     actionRemoveWalls() {
+
+        if (this.walls.length == this.map.width * 2 + this.map.height * 2) {
+            // empty already
+            return
+        }
 
         let removedWalls: IWall[] = []
 
@@ -736,6 +853,7 @@ const enum ActionType {
     NewWall,
     RemoveWall,
     RemoveInnerWalls,
+    MapResize,
 }
 interface Action {
     type: ActionType
