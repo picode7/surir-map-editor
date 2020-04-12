@@ -657,7 +657,6 @@ class SurirEditor {
                 if (wallWithinBounds(size, wall) == false && // not in new zone
                     wallWithinBounds(this.map, wall) == true // in currently, so it's not and edge wall
                 ) {
-                    console.log(wall)
                     removedWalls.push({ type: wall.type, position: copyObject(wall.position) })
                     wall.remove()
                     this.walls.splice(i, 1)
