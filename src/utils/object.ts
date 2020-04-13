@@ -1,3 +1,1 @@
-function copyObject<T extends Object>(object: T) {
-    return Object.assign({}, object)
-}
+// Copy object (not deep): let copy = { ...object }
