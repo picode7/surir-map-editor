@@ -13,9 +13,9 @@ const FloorColor = '#5c5c5c'
 
 const SkyColor = '#5c6bde'
 
-const PlayerRadius = 6 / 48 // 6
+const PlayerRadius = 6 / 48
 
-const ShotRadius = 2 / 48 // 2, h=10
+const ShotRadius = 2 / 48
 const ShotCollisionPlayerRadius = 3 / 48
 
 const enum WallType {

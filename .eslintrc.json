@@ -13,6 +13,13 @@
 		"no-undef": "off",
 		"no-inner-declarations": "off",
 		"no-constant-condition": ["error", { "checkLoops": false }],
+		"prefer-const": "warn",
+		"no-floating-decimal": "warn",
+		"comma-dangle": ["warn", "always-multiline"],
+		"no-template-curly-in-string": "warn",
+		"no-alert": "warn",
+		"no-console": "warn",
+		"no-eq-null": "error",
 
 		"@typescript-eslint/no-unused-vars": "off",
 		"@typescript-eslint/no-explicit-any": "off",
