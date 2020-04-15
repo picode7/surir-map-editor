@@ -177,9 +177,8 @@ class SurirEditor {
 		this.buttonUndo.disabled = true
 		this.buttonUndo.addEventListener('click', () => this.undoManager.undo())
 		this.undoManager.onAction.listen((state) => {
-			if (typeof this.buttonUndo !== 'undefined') {
-				this.buttonUndo.disabled = !state.canUndo
-			}
+			this.buttonUndo.disabled = !state.canUndo
+
 		})
 		div.appendChild(this.buttonUndo)
 
@@ -189,9 +188,8 @@ class SurirEditor {
 		this.buttonRedo.disabled = true
 		this.buttonRedo.addEventListener('click', () => this.undoManager.redo())
 		this.undoManager.onAction.listen((state) => {
-			if (typeof this.buttonRedo !== 'undefined') {
-				this.buttonRedo.disabled = !state.canRedo
-			}
+			this.buttonRedo.disabled = !state.canRedo
+
 		})
 		div.appendChild(this.buttonRedo)
 
@@ -227,10 +225,8 @@ class SurirEditor {
 			this.exportFile(selectedExportType, this.mapName, 'download')
 		})
 		this.undoManager.onAction.listen((state) => {
-			if (typeof this.buttonSave !== 'undefined') {
-				if (state.saved) this.buttonSave.textContent = 'Save'
-				else this.buttonSave.textContent = 'Save *'
-			}
+			if (state.saved) this.buttonSave.textContent = 'Save'
+			else this.buttonSave.textContent = 'Save *'
 		})
 		div.appendChild(this.buttonSave)
 
@@ -330,47 +326,35 @@ class SurirEditor {
 		if (hash === '') {
 			// Create default walls
 			for (let x = 0; x < this.map.width; ++x) {
-				this.addWall(
-					{
-						type: WallType.Basic,
-						position: { x1: x, y1: 0, x2: x + 1, y2: 0 },
+				this.addWall({
+					type: WallType.Basic,
+					position: { x1: x, y1: 0, x2: x + 1, y2: 0 },
+				}, false)
+				this.addWall({
+					type: WallType.Basic,
+					position: {
+						x1: x,
+						y1: this.map.height,
+						x2: x + 1,
+						y2: this.map.height,
 					},
-					false
-				)
-				this.addWall(
-					{
-						type: WallType.Basic,
-						position: {
-							x1: x,
-							y1: this.map.height,
-							x2: x + 1,
-							y2: this.map.height,
-						},
-					},
-					false
-				)
+				}, false)
 			}
 
 			for (let y = 0; y < this.map.height; ++y) {
-				this.addWall(
-					{
-						type: WallType.Basic,
-						position: { x1: 0, y1: y, x2: 0, y2: y + 1 },
+				this.addWall({
+					type: WallType.Basic,
+					position: { x1: 0, y1: y, x2: 0, y2: y + 1 },
+				}, false)
+				this.addWall({
+					type: WallType.Basic,
+					position: {
+						x1: this.map.width,
+						y1: y,
+						x2: this.map.width,
+						y2: y + 1,
 					},
-					false
-				)
-				this.addWall(
-					{
-						type: WallType.Basic,
-						position: {
-							x1: this.map.width,
-							y1: y,
-							x2: this.map.width,
-							y2: y + 1,
-						},
-					},
-					false
-				)
+				}, false)
 			}
 			this.mapName = 'New Maze'
 			this.mapAuthor = ''
@@ -995,7 +979,6 @@ class SurirEditor {
 
 		this.undoManager.add({ undo, redo })
 	}
-
 }
 
 class Player {
