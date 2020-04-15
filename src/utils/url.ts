@@ -2,14 +2,14 @@
  * Removes hash without saving to history
  */
 function urlRemoveHash() {
-	history.replaceState(null, '', ' ')
+  history.replaceState(null, '', ' ')
 }
 
 /**
  * Returns url hash without # in the beginning
  */
 function urlGetHash() {
-	return window.location.hash.substring(1)
+  return window.location.hash.substring(1)
 }
 
 // On Hash Changed

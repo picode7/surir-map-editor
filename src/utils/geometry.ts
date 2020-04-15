@@ -1,18 +1,18 @@
 interface Line {
-	x1: number
-	y1: number
-	x2: number
-	y2: number
+  x1: number
+  y1: number
+  x2: number
+  y2: number
 }
 
 function inBounds(
-	position: { x: number; y: number },
-	boundsRect: { x1: number; y1: number; x2: number; y2: number }
+  position: { x: number; y: number },
+  boundsRect: { x1: number; y1: number; x2: number; y2: number }
 ) {
-	return (
-		position.x >= boundsRect.x1 &&
-		position.x <= boundsRect.x2 &&
-		position.y >= boundsRect.y1 &&
-		position.y <= boundsRect.y2
-	)
+  return (
+    position.x >= boundsRect.x1 &&
+    position.x <= boundsRect.x2 &&
+    position.y >= boundsRect.y1 &&
+    position.y <= boundsRect.y2
+  )
 }
