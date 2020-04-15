@@ -1,22 +1,33 @@
+/* eslint-disable no-alert */
 function init() {
 	new SurirEditor()
 }
 
 const ZOOM_DEFAULT = 0.95
 
-const WallLength = 1
-const WallColorBasic = '#808080'
-const WallColorDoor = '#ffff00'
-const WallColorTransparent = '#fff'
+const WALL_LENGTH = 1
+const WC = new Map([
 
-const FloorColor = '#5c5c5c'
+	[WallType.Basic, '#808080'],
+	[WallType.Door, '#ffff00'],
+	[WallType.Transparent, '#ffffff'],
 
-const SkyColor = '#5c6bde'
+])
 
-const PlayerRadius = 6 / 48
+const WALL_COLOR: { readonly [P in WallType]: string } = {
+	[WallType.Basic]: '#808080',
+	[WallType.Door]: '#ffff00',
+	[WallType.Transparent]: '#ffffff',
+}
 
-const ShotRadius = 2 / 48
-const ShotCollisionPlayerRadius = 3 / 48
+const FLOOR_COLOR = '#5c5c5c'
+
+const SKY_COLOR = '#5c6bde'
+
+const PLAYER_RADIUS = 6 / 48
+
+const SHOT_RADIUS = 2 / 48
+const SHOT_COLLISION_PLAYER_RADIUS = 3 / 48
 
 const enum WallType {
 	Basic,
@@ -33,7 +44,9 @@ class SurirEditor {
 		{ title: 'Transparent Wall', wallType: WallType.Transparent },
 	]
 
-	_mapName = ''
+	undoManager = new UndoManager()
+
+	private _mapName = ''
 	set mapName(s: string) {
 		this._mapName = s
 		this.buttonName.textContent = `Map name: ${this._mapName}`
@@ -41,7 +54,7 @@ class SurirEditor {
 	get mapName() {
 		return this._mapName
 	}
-	_mapAuthor: string | undefined
+	private _mapAuthor: string | undefined
 	set mapAuthor(s: string | undefined) {
 		this._mapAuthor = s
 		this.buttonAuthor.textContent = `Author: ${
@@ -162,14 +175,24 @@ class SurirEditor {
 		this.buttonUndo = document.createElement('button')
 		this.buttonUndo.textContent = 'Undo'
 		this.buttonUndo.disabled = true
-		this.buttonUndo.addEventListener('click', () => this.undo())
+		this.buttonUndo.addEventListener('click', () => this.undoManager.undo())
+		this.undoManager.onAction.listen((state) => {
+			if (typeof this.buttonUndo !== 'undefined') {
+				this.buttonUndo.disabled = !state.canUndo
+			}
+		})
 		div.appendChild(this.buttonUndo)
 
 		// Button Remove Redo
 		this.buttonRedo = document.createElement('button')
 		this.buttonRedo.textContent = 'Redo'
 		this.buttonRedo.disabled = true
-		this.buttonRedo.addEventListener('click', () => this.redo())
+		this.buttonRedo.addEventListener('click', () => this.undoManager.redo())
+		this.undoManager.onAction.listen((state) => {
+			if (typeof this.buttonRedo !== 'undefined') {
+				this.buttonRedo.disabled = !state.canRedo
+			}
+		})
 		div.appendChild(this.buttonRedo)
 
 		// Button Center view
@@ -200,8 +223,14 @@ class SurirEditor {
 		this.buttonSave = document.createElement('button')
 		this.buttonSave.textContent = 'Save'
 		this.buttonSave.addEventListener('click', () => {
-			this.actionsSaved = true
+			this.undoManager.save()
 			this.exportFile(selectedExportType, this.mapName, 'download')
+		})
+		this.undoManager.onAction.listen((state) => {
+			if (typeof this.buttonSave !== 'undefined') {
+				if (state.saved) this.buttonSave.textContent = 'Save'
+				else this.buttonSave.textContent = 'Save *'
+			}
 		})
 		div.appendChild(this.buttonSave)
 
@@ -224,7 +253,7 @@ class SurirEditor {
 		buttonImport.textContent = 'Open'
 		buttonImport.addEventListener('click', () => {
 			if (
-				this.actionsSaved === false &&
+				this.undoManager.getState().saved === false &&
 				confirm('You have unsaved changes, open a new map?') === false
 			)
 				return
@@ -238,7 +267,7 @@ class SurirEditor {
 
 		// Prevent unsaved leaves
 		window.addEventListener('beforeunload', (event: BeforeUnloadEvent) => {
-			if (this.actionsSaved == false) {
+			if (this.undoManager.getState().saved == false) {
 				event.preventDefault()
 				event.returnValue = ''
 			}
@@ -246,21 +275,18 @@ class SurirEditor {
 
 		// SVG container
 		this.svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-		this.svg.style.backgroundColor = SkyColor
+		this.svg.style.backgroundColor = SKY_COLOR
 		document.body.appendChild(this.svg)
 
 		// Pattern
-		const pattern = document.createElementNS(
-			'http://www.w3.org/2000/svg',
-			'pattern'
-		)
+		const pattern = document.createElementNS('http://www.w3.org/2000/svg', 'pattern')
 		pattern.id = 'pattern'
 		pattern.setAttribute('width', '0.04')
 		pattern.setAttribute('height', '0.04')
 		pattern.setAttribute('patternUnits', 'userSpaceOnUse')
 		this.svg.appendChild(pattern)
 		const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
-		path.style.stroke = WallColorBasic
+		path.style.stroke = WALL_COLOR[WallType.Basic]
 		path.style.strokeWidth = '0.01'
 		path.style.opacity = '.3'
 		path.setAttribute(
@@ -270,11 +296,8 @@ class SurirEditor {
 		pattern.appendChild(path)
 
 		// Floor
-		this.floorRect = document.createElementNS(
-			'http://www.w3.org/2000/svg',
-			'rect'
-		)
-		this.floorRect.style.fill = FloorColor
+		this.floorRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+		this.floorRect.style.fill = FLOOR_COLOR
 		this.svg.appendChild(this.floorRect)
 
 		// Zones
@@ -294,7 +317,7 @@ class SurirEditor {
 			urlRemoveHash()
 
 			if (
-				this.actionsSaved === false &&
+				this.undoManager.getState().saved === false &&
 				confirm('You have unsaved changes, open a new map?') === false
 			)
 				return
@@ -373,7 +396,7 @@ class SurirEditor {
 		let clickMoved = false
 
 		// Render size
-		window.addEventListener('resize', () => this.resize())
+		window.addEventListener('resize', () => this.onResize())
 
 		// Zoom
 		this.svg.addEventListener('wheel', (e: WheelEvent) => {
@@ -409,7 +432,7 @@ class SurirEditor {
 			this.zoomCenter.x += offsetX - offsetXPrev
 			this.zoomCenter.y += offsetY - offsetYPrev
 
-			this.resize()
+			this.onResize()
 		})
 
 		// Drag
@@ -426,7 +449,7 @@ class SurirEditor {
 			const offsetY = pixelOffsetY / zoomPixelRatio
 			this.zoomCenter.x += -offsetX
 			this.zoomCenter.y += -offsetY
-			this.resize()
+			this.onResize()
 			clickMoved = true
 
 			mouseMovePrevious.x = e.clientX
@@ -471,7 +494,7 @@ class SurirEditor {
 		})
 
 		this.updateMap()
-		this.resetActions()
+		this.undoManager.clear()
 	}
 
 	screenToMapPosition(screenPixelX: number, screenPixelY: number) {
@@ -495,7 +518,7 @@ class SurirEditor {
 		return { x, y }
 	}
 
-	resize() {
+	onResize() {
 		this.svg.style.width = `${window.innerWidth}px`
 		this.svg.style.height = `${window.innerHeight}px`
 		const left = this.zoomCenter.x - this.map.width / 2 / this.zoom
@@ -513,8 +536,8 @@ class SurirEditor {
 		this.map.height = height
 
 		// Adjust floor size
-		this.floorRect.setAttribute('width', `${WallLength * this.map.width}`)
-		this.floorRect.setAttribute('height', `${WallLength * this.map.height}`)
+		this.floorRect.setAttribute('width', `${WALL_LENGTH * this.map.width}`)
+		this.floorRect.setAttribute('height', `${WALL_LENGTH * this.map.height}`)
 
 		this.buttonMapSize.textContent = `Map size: ${this.map.width} x ${this.map.height}` // also in buttonMapSize init
 	}
@@ -542,8 +565,8 @@ class SurirEditor {
 					rect.style.fill = 'url(#pattern)'
 					rect.setAttribute('x', `${x}`)
 					rect.setAttribute('y', `${y}`)
-					rect.setAttribute('width', `${WallLength}`)
-					rect.setAttribute('height', `${WallLength}`)
+					rect.setAttribute('width', `${WALL_LENGTH}`)
+					rect.setAttribute('height', `${WALL_LENGTH}`)
 					this.zonesLayer.appendChild(rect)
 				}
 			}
@@ -557,7 +580,7 @@ class SurirEditor {
 			y: this.map.height / 2,
 		}
 
-		this.resize()
+		this.onResize()
 	}
 
 	removeAllWalls(updateUnreachableZones: boolean) {
@@ -611,7 +634,7 @@ class SurirEditor {
 				{
 					const map = importMAZFile(fileContent)
 
-					this.resetActions()
+					this.undoManager.clear()
 					this.mapName = fileBaseName
 					this.setMapSize(map.width, map.height)
 					// Reset zoom
@@ -628,7 +651,7 @@ class SurirEditor {
 				{
 					const map = importSIRFile(fileContent)
 
-					this.resetActions()
+					this.undoManager.clear()
 					this.mapName = typeof map.name !== 'undefined' ? map.name : 'New Maze'
 					this.mapAuthor = map.author
 					this.mapDescription = map.description
@@ -736,7 +759,7 @@ class SurirEditor {
 		const split = hash.split(';')
 		if (split.length !== 2) return
 
-		this.resetActions()
+		this.undoManager.clear()
 		const fileName = decodeURIComponent(split[0])
 		const fileContent = decodeURIComponent(split[1])
 
@@ -774,11 +797,7 @@ class SurirEditor {
 
 		redo()
 
-		this.newAction({
-			type: ActionType.NewWall,
-			redo,
-			undo,
-		})
+		this.undoManager.add({ undo, redo })
 	}
 
 	actionResizeMap(width: number, height: number) {
@@ -899,11 +918,7 @@ class SurirEditor {
 
 		redo()
 
-		this.newAction({
-			type: ActionType.MapResize,
-			redo,
-			undo,
-		})
+		this.undoManager.add({ undo, redo })
 	}
 
 	actionNewWall(wall: WallDescription) {
@@ -923,11 +938,7 @@ class SurirEditor {
 
 		redo()
 
-		this.newAction({
-			type: ActionType.NewWall,
-			redo,
-			undo,
-		})
+		this.undoManager.add({ undo, redo })
 	}
 
 	actionRemoveWall(wall: Wall) {
@@ -947,11 +958,7 @@ class SurirEditor {
 
 		redo()
 
-		this.newAction({
-			type: ActionType.NewWall,
-			redo,
-			undo,
-		})
+		this.undoManager.add({ undo, redo })
 	}
 
 	actionRemoveWalls() {
@@ -986,100 +993,15 @@ class SurirEditor {
 
 		redo()
 
-		this.newAction({
-			type: ActionType.RemoveInnerWalls,
-			redo,
-			undo,
-		})
+		this.undoManager.add({ undo, redo })
 	}
 
-	actions: Action[] = []
-	actionIndex = -1 // the current action state
-	_actionsSaved = true
-	actionsSavedIndex = -1
-	resetActions() {
-		const asd = 'asd'
-		this.actions = []
-		this.actionIndex = -1
-		this.actionsSaved = true
-		this.actionsSavedIndex = -1
-		this.updateActionButtons()
-	}
-
-	set actionsSaved(value: boolean) {
-		this._actionsSaved = value
-		if (this._actionsSaved === true) this.actionsSavedIndex = this.actionIndex
-
-		if (typeof this.buttonSave !== 'undefined') {
-			if (this._actionsSaved) this.buttonSave.textContent = 'Save'
-			else this.buttonSave.textContent = 'Save *'
-		}
-	}
-
-	get actionsSaved() {
-		return this._actionsSaved
-	}
-
-	updateActionButtons() {
-		if (typeof this.buttonUndo !== 'undefined') {
-			this.buttonUndo.disabled = this.actionIndex == -1
-			this.buttonRedo.disabled = this.actionIndex == this.actions.length - 1
-		}
-	}
-
-	newAction(action: Action) {
-		// Remove potential redo actions
-		this.actions.splice(this.actionIndex + 1)
-
-		this.actions.push(action)
-		this.actionIndex = this.actions.length - 1
-		if (this.actionsSavedIndex >= this.actionIndex) {
-			this.actionsSavedIndex = -1
-		}
-		this.actionsSaved = false
-
-		this.updateActionButtons()
-	}
-
-	undo() {
-		// Undo current action
-		this.actions[this.actionIndex].undo()
-
-		// Move index to previous action
-		this.actionIndex--
-		this.actionsSaved = this.actionsSavedIndex == this.actionIndex
-
-		this.updateActionButtons()
-	}
-
-	redo() {
-		// Redo following action
-		this.actions[this.actionIndex + 1].redo()
-
-		// Move index to following action
-		this.actionIndex++
-		this.actionsSaved = this.actionsSavedIndex == this.actionIndex
-
-		this.updateActionButtons()
-	}
-}
-
-const enum ActionType {
-	NewWall,
-	RemoveWall,
-	RemoveInnerWalls,
-	MapResize,
-}
-interface Action {
-	type: ActionType;
-	undo: () => any;
-	redo: () => any;
 }
 
 class Player {
 	position = {
-		x: WallLength / 2,
-		y: WallLength / 2,
+		x: WALL_LENGTH / 2,
+		y: WALL_LENGTH / 2,
 	}
 	direction = 0
 
@@ -1094,15 +1016,15 @@ class Player {
 		circle.style.fill = 'yellow'
 		circle.setAttribute('cx', `${this.position.x}`)
 		circle.setAttribute('cy', `${this.position.y}`)
-		circle.setAttribute('r', `${PlayerRadius}`)
+		circle.setAttribute('r', `${PLAYER_RADIUS}`)
 		g.appendChild(circle)
 
 		const x2 =
 			this.position.x +
-			PlayerRadius * Math.cos((this.direction * Math.PI) / 180)
+			PLAYER_RADIUS * Math.cos((this.direction * Math.PI) / 180)
 		const y2 =
 			this.position.y +
-			PlayerRadius * Math.sin((this.direction * Math.PI) / 180)
+			PLAYER_RADIUS * Math.sin((this.direction * Math.PI) / 180)
 
 		const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
 		line.style.stroke = 'black'
@@ -1150,15 +1072,15 @@ class Shot {
 		circle2.style.strokeWidth = '0.005'
 		circle2.setAttribute('cx', `${this.position.x}`)
 		circle2.setAttribute('cy', `${this.position.y}`)
-		circle2.setAttribute('r', `${ShotCollisionPlayerRadius}`)
+		circle2.setAttribute('r', `${SHOT_COLLISION_PLAYER_RADIUS}`)
 		g.appendChild(circle2)
 
 		const x2 =
 			this.position.x +
-			ShotCollisionPlayerRadius * Math.cos((this.direction * Math.PI) / 180)
+			SHOT_COLLISION_PLAYER_RADIUS * Math.cos((this.direction * Math.PI) / 180)
 		const y2 =
 			this.position.y +
-			ShotCollisionPlayerRadius * Math.sin((this.direction * Math.PI) / 180)
+			SHOT_COLLISION_PLAYER_RADIUS * Math.sin((this.direction * Math.PI) / 180)
 
 		const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
 		line.style.stroke = 'black'
@@ -1194,18 +1116,8 @@ class Wall {
 		this.g = g
 
 		const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
-		switch (this.type) {
-			case WallType.Basic:
-				line.style.stroke = WallColorBasic
-				break
-			case WallType.Door:
-				line.style.stroke = WallColorDoor
-				break
-			case WallType.Transparent:
-				line.style.stroke = WallColorTransparent
-				line.style.opacity = '0.05'
-				break
-		}
+		line.style.stroke = WALL_COLOR[this.type]
+		line.style.opacity = this.type == WallType.Transparent ? '0.05' : '1'
 		line.style.strokeWidth = '0.02'
 		line.style.strokeLinecap = 'square'
 		line.setAttribute('x1', `${this.position.x1}`)

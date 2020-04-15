@@ -18,3 +18,8 @@ interface HTMLInputElement {
 		listener: (e: Event & { target: HTMLInputElement & EventTarget }) => any
 	): void
 }
+
+// Get type of array items: myArray[number]
+// Get type of class member: MyClass["myMember"]
+// Get return type of function ReturnType<myFunction>
+// Get parameter type of function Parameters<myFunction>

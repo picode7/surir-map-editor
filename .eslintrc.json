@@ -26,6 +26,27 @@
 		"@typescript-eslint/explicit-function-return-type": "off",
 		"@typescript-eslint/no-use-before-define": "off",
 		"@typescript-eslint/no-namespace": "off",
-		"@typescript-eslint/member-delimiter-style": "off"
+		"@typescript-eslint/member-delimiter-style": "off",
+		"@typescript-eslint/array-type": ["warn", { "array-simple": true }],
+		"@typescript-eslint/ban-types": "warn",
+		"@typescript-eslint/consistent-type-definitions": "warn",
+		"@typescript-eslint/naming-convention": [
+			"warn",
+			{ "selector": "default", "format": ["camelCase"] },
+			{ "selector": "variable", "format": ["camelCase", "UPPER_CASE"] },
+			{
+				"selector": "parameter",
+				"format": ["camelCase"],
+				"leadingUnderscore": "allow"
+			},
+			{
+				"selector": "memberLike",
+				"modifiers": ["private"],
+				"format": ["camelCase"],
+				"leadingUnderscore": "require"
+			},
+			{ "selector": "typeLike", "format": ["PascalCase"] },
+			{ "selector": "enumMember", "format": ["PascalCase"] }
+		]
 	}
 }
