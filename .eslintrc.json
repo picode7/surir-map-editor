@@ -22,14 +22,17 @@
     "no-eq-null": "error",
 
     "@typescript-eslint/no-unused-vars": "off",
+    "no-empty-function": "off",
+    "@typescript-eslint/no-empty-function": ["warn"],
     "@typescript-eslint/no-explicit-any": "off",
     "@typescript-eslint/explicit-function-return-type": "off",
     "@typescript-eslint/no-use-before-define": "off",
     "@typescript-eslint/no-namespace": "off",
     "@typescript-eslint/member-delimiter-style": "off",
-    "@typescript-eslint/array-type": ["warn", { "array-simple": true }],
+    "@typescript-eslint/array-type": ["warn", { "default": "array-simple" }],
     "@typescript-eslint/ban-types": "warn",
     "@typescript-eslint/consistent-type-definitions": "warn",
+    "@typescript-eslint/no-inferrable-types": "warn",
     "@typescript-eslint/naming-convention": [
       "warn",
       { "selector": "default", "format": ["camelCase"] },

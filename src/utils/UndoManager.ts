@@ -54,6 +54,7 @@ class UndoManager {
 
   public save() {
     this._savedIndex = this._latestActionIndex
+    this._onAction('save')
   }
 
   public getState() {
@@ -64,7 +65,7 @@ class UndoManager {
     }
   }
 
-  private _onAction(reason: 'add' | 'undo' | 'redo' | 'safe' | 'clear') {
+  private _onAction(reason: 'add' | 'undo' | 'redo' | 'save' | 'clear') {
     this.onAction.fireEvent(this.getState())
   }
 }
